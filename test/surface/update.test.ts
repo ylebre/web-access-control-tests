@@ -85,7 +85,39 @@ describe('Update', () => {
       });
       expect(responseCodeGroup(result.status)).toEqual("2xx");
     });
-    it('Is disallowed with accessTo Read+Append+Control access on resource', async () => {
+    it('Is disallowed with accessTo Read+Control access on resource', async () => {
+      const resourceUrl = `${testFolderUrl}accessToAppend/test.txt`;
+      // This will do mkdir-p:
+      const creationResult =  await solidLogicAlice.fetch(resourceUrl, {
+        method: 'PUT',
+        body: 'hello',
+        headers: {
+          'Content-Type': 'text/plain',
+          'If-None-Match': '*'
+        }
+      });
+      const etagInQuotes = creationResult.headers.get('etag');
+      // console.log({ etag: etagInQuotes });
+      const aclDocUrl = await solidLogicAlice.findAclDocUrl(resourceUrl);
+      await solidLogicAlice.fetch(aclDocUrl, {
+        method: 'PUT',
+        body: makeBody('acl:Read, acl:Control', null, resourceUrl),
+        headers: {
+          'Content-Type': 'text/turtle',
+          'If-None-Match': '*'
+        }
+      });
+      const result = await solidLogicBob.fetch(resourceUrl, {
+        method: 'PUT',
+        body: 'hello world',
+        headers: {
+          'Content-Type': 'text/plain',
+          'If-Match': etagInQuotes
+        }
+      });
+	  expect(result.status).toEqual(403);
+    });
+    it('Is disallowed with accessTo Read+Append+Control access on resource when the contents differ', async () => {
       const resourceUrl = `${testFolderUrl}accessToAppend/test.txt`;
       // This will do mkdir-p:
       const creationResult =  await solidLogicAlice.fetch(resourceUrl, {
@@ -109,7 +141,7 @@ describe('Update', () => {
       });
       const result = await solidLogicBob.fetch(resourceUrl, {
         method: 'PUT',
-        body: 'hello world',
+        body: 'hi world',
         headers: {
           'Content-Type': 'text/plain',
           'If-Match': etagInQuotes
@@ -150,7 +182,40 @@ describe('Update', () => {
       });
       expect(responseCodeGroup(result.status)).toEqual("2xx");
     });
-    it('Is disallowed with default Read+Append+Control access on parent', async () => {
+    it('Is disallowed with default Read+Control access on parent', async () => {
+      const containerUrl = `${testFolderUrl}accessToAppend/`;
+      const resourceUrl = `${containerUrl}test.txt`;
+      // This will do mkdir-p:
+      const creationResult =  await solidLogicAlice.fetch(resourceUrl, {
+        method: 'PUT',
+        body: 'hello',
+        headers: {
+          'Content-Type': 'text/plain',
+          'If-None-Match': '*'
+        }
+      });
+      const etagInQuotes = creationResult.headers.get('etag');
+      // console.log({ etag: etagInQuotes });
+      const aclDocUrl = await solidLogicAlice.findAclDocUrl(containerUrl);
+      await solidLogicAlice.fetch(aclDocUrl, {
+        method: 'PUT',
+        body: makeBody(null, 'acl:Read, acl:Control', resourceUrl),
+        headers: {
+          'Content-Type': 'text/turtle',
+          'If-None-Match': '*'
+        }
+      });
+      const result = await solidLogicBob.fetch(resourceUrl, {
+        method: 'PUT',
+        body: 'hello world',
+        headers: {
+          'Content-Type': 'text/plain',
+          'If-Match': etagInQuotes
+        }
+      });
+      expect(result.status).toEqual(403);
+    });
+    it('Is disallowed with default Read+Append+Control access on parent when content differs', async () => {
       const containerUrl = `${testFolderUrl}accessToAppend/`;
       const resourceUrl = `${containerUrl}test.txt`;
       // This will do mkdir-p:
@@ -175,7 +240,7 @@ describe('Update', () => {
       });
       const result = await solidLogicBob.fetch(resourceUrl, {
         method: 'PUT',
-        body: 'hello world',
+        body: 'hi world',
         headers: {
           'Content-Type': 'text/plain',
           'If-Match': etagInQuotes
